@@ -222,7 +222,7 @@ def load_project_images(folder: str):
     img1 = resize_to(Image.open(d / "image_1.png").convert("RGB"))
     img2 = resize_to(Image.open(d / "image_2.png").convert("RGB"))
     ov1 = make_overlay(img0, white_to_green(img1))
-    ov2 = make_overlay(img0, img2)
+    ov2 = make_overlay(img0, white_to_green(img2))
     return img0, ov1, ov2
 
 
