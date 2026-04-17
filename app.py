@@ -70,6 +70,13 @@ RESIZE_JS = """
 """
 
 
+def white_to_green(img: Image.Image) -> Image.Image:
+    arr = np.array(img.convert("RGB"), dtype=np.uint8)
+    is_white = (arr[:, :, 0] > 200) & (arr[:, :, 1] > 200) & (arr[:, :, 2] > 200)
+    arr[is_white] = [0, 200, 0]
+    return Image.fromarray(arr, "RGB")
+
+
 def make_overlay(base: Image.Image, mask: Image.Image, alpha: float = OVERLAY_ALPHA) -> Image.Image:
     base_rgb = base.convert("RGB")
     mask_rgba = mask.convert("RGBA")
@@ -214,7 +221,7 @@ def load_project_images(folder: str):
     img0 = resize_to(Image.open(d / "image_0.png").convert("RGB"))
     img1 = resize_to(Image.open(d / "image_1.png").convert("RGB"))
     img2 = resize_to(Image.open(d / "image_2.png").convert("RGB"))
-    ov1 = make_overlay(img0, img1)
+    ov1 = make_overlay(img0, white_to_green(img1))
     ov2 = make_overlay(img0, img2)
     return img0, ov1, ov2
 
