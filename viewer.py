@@ -147,7 +147,7 @@ def single_slider_html(
 #lbl-l {{ left: 12px; }}
 #lbl-r {{ right: 12px; }}
 .legend {{
-  position: absolute; right: 12px; bottom: 12px;
+  position: absolute; right: 12px; bottom: 48px;
   max-width: 28%; max-height: 42%;
   z-index: 15; pointer-events: none;
 }}
