@@ -9,6 +9,8 @@ from PIL import Image
 
 DATA_DIR = Path(__file__).parent / "data"
 LAND_USE_DIR = DATA_DIR / "land use"
+FIRE_DIR = DATA_DIR / "Fire"
+VEGETATION_DIR = DATA_DIR / "Vegetation"
 OVERLAY_ALPHA = 0.65
 
 SLIDER_CSS = """
@@ -127,8 +129,8 @@ def add_legend_overlay(base_img: Image.Image, legend_img: Image.Image, padding: 
 def single_slider_html(
     img_base: Image.Image,
     img_overlay: Image.Image,
-    label_left: str = "Base",
-    label_right: str = "Overlay",
+    label_left: str = "RGB",
+    label_right: str = "Mask",
     legend_img: Image.Image | None = None,
 ) -> str:
     b0 = to_b64(img_base)
@@ -220,7 +222,7 @@ def dual_slider_html(
     <div class="bar"></div><div class="circle">⇔</div>
   </div>
   <div class="lbl" id="lbl1">{label1}</div>
-  <div class="lbl" id="lblc">Base</div>
+  <div class="lbl" id="lblc">RGB</div>
   <div class="lbl" id="lbl2">{label2}</div>
 </div>
 <script>
@@ -275,6 +277,29 @@ def load_project_images(folder: str):
 
 
 @st.cache_data(show_spinner=False)
+def load_fire_images():
+    base = resize_to(Image.open(FIRE_DIR / "rgb.png").convert("RGB"))
+    overlay = resize_to(Image.open(FIRE_DIR / "swir.png").convert("RGB"))
+    if overlay.size != base.size:
+        overlay = overlay.resize(base.size, Image.LANCZOS)
+    return base, overlay
+
+
+@st.cache_data(show_spinner=False)
+def load_vegetation_images():
+    base = resize_to(Image.open(VEGETATION_DIR / "input_rgb.png").convert("RGB"))
+    ndvi = resize_to(Image.open(VEGETATION_DIR / "ndvi.png").convert("RGB"))
+    moisture = resize_to(Image.open(VEGETATION_DIR / "moisture_index.png").convert("RGB"))
+    if ndvi.size != base.size:
+        ndvi = ndvi.resize(base.size, Image.LANCZOS)
+    if moisture.size != base.size:
+        moisture = moisture.resize(base.size, Image.LANCZOS)
+    ndvi_overlay = make_overlay(base, white_to_green(ndvi))
+    moisture_overlay = make_overlay(base, white_to_green(moisture))
+    return base, ndvi_overlay, moisture_overlay
+
+
+@st.cache_data(show_spinner=False)
 def load_land_use_example(example_name: str):
     d = LAND_USE_DIR / example_name
     base_path = d / "input_rgb.png"
@@ -305,7 +330,7 @@ def render_osd_page():
     with col_l:
         st.subheader("Overlay — Mask 1")
         components.html(
-            single_slider_html(img0, overlay1, label_left="Mask 1", label_right="Base"),
+            single_slider_html(img0, overlay1, label_left="Mask 1", label_right="RGB"),
             height=500,
             scrolling=False,
         )
@@ -313,7 +338,7 @@ def render_osd_page():
     with col_r:
         st.subheader("Overlay — Mask 2")
         components.html(
-            single_slider_html(img0, overlay2, label_left="Mask 2", label_right="Base"),
+            single_slider_html(img0, overlay2, label_left="Mask 2", label_right="RGB"),
             height=500,
             scrolling=False,
         )
@@ -325,6 +350,51 @@ def render_osd_page():
     components.html(
         dual_slider_html(img0, overlay1, overlay2, label1="Mask 1", label2="Mask 2"),
         height=800,
+        scrolling=False,
+    )
+
+
+def render_fire_page():
+    st.title("🔥  Fire")
+    st.caption("Use the slider to compare the RGB image with the SWIR image.")
+
+    with st.spinner("Loading fire images…"):
+        rgb, swir = load_fire_images()
+
+    components.html(
+        single_slider_html(rgb, swir, label_left="RGB", label_right="Mask 1"),
+        height=max(540, int(rgb.height * 0.62) + 120),
+        scrolling=False,
+    )
+
+
+def render_vegetation_page():
+    st.title("🌿  Vegetation")
+    st.caption("NDVI and moisture are shown separately first, then combined into one dual-slider canvas.")
+
+    with st.spinner("Loading vegetation images…"):
+        base, ndvi_overlay, moisture_overlay = load_vegetation_images()
+
+    st.subheader("NDVI")
+    components.html(
+        single_slider_html(base, ndvi_overlay, label_left="RGB", label_right="Mask 1"),
+        height=max(540, int(base.height * 0.62) + 120),
+        scrolling=False,
+    )
+
+    st.subheader("Moisture")
+    components.html(
+        single_slider_html(base, moisture_overlay, label_left="RGB", label_right="Mask 2"),
+        height=max(540, int(base.height * 0.62) + 120),
+        scrolling=False,
+    )
+
+    st.divider()
+    st.subheader("NDVI + Moisture")
+    st.caption("Drag the left handle for NDVI and the right handle for moisture.")
+    components.html(
+        dual_slider_html(base, ndvi_overlay, moisture_overlay, label1="Mask 1", label2="Mask 2"),
+        height=max(780, int(base.height * 0.95) + 180),
         scrolling=False,
     )
 
@@ -367,8 +437,8 @@ def render_land_use_page():
         single_slider_html(
             img0,
             overlay,
-            label_left="ESA_LULC Overlay",
-            label_right="Input RGB",
+            label_left="Mask",
+            label_right="RGB",
             legend_img=legend,
         ),
         height=height,
