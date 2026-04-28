@@ -1,0 +1,15 @@
+Product id: S2A_MSIL2A_20260221T070201_N0512_R020_T40RDQ_20260221T094010
+
+The MDN-STREAM algorithm is trained on standard limnological and oceanographic datasets. When it outputs values into the .tif files, they correlate to these scientific units:
+
+CHL (Chlorophyll-a): Measured in mg/m³ (milligrams per cubic meter).
+TSS (Total Suspended Solids): Measured in g/m³ (grams per cubic meter), which is numerically equivalent to mg/L.
+CDOM (Colored Dissolved Organic Matter): Measured as an absorption coefficient at 440nm, resulting in units of m⁻¹ (inverse meters).
+
+=====================================================================================
+Parameter  | Mean       | Median     | Min        | Max        | Std Dev    | Unit
+-------------------------------------------------------------------------------------
+CHL        | 1.488      | 1.649      | 0.000      | 2503.318   | 1.201      | mg/m³
+TSS        | 12.416     | 13.037     | 0.016      | 3538.665   | 4.949      | g/m³
+CDOM       | 0.050      | 0.056      | 0.000      | 25.996     | 0.019      | m⁻¹
+=====================================================================================

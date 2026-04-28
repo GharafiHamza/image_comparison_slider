@@ -2,12 +2,22 @@ import streamlit as st
 
 from viewer import (
     render_fire_page,
-    render_land_use_page,
+    render_land_use_tiles_page,
     render_osd_page,
+    render_water_quality_page,
     render_vegetation_page,
 )
 
 st.set_page_config(layout="wide", page_title="Remote Sensing Showcase")
+
+mask_opacity = st.sidebar.slider(
+    "Mask opacity",
+    min_value=0.0,
+    max_value=1.0,
+    value=float(st.session_state.get("mask_opacity", 0.65)),
+    step=0.05,
+    key="mask_opacity",
+)
 
 navigation = st.navigation(
     {
@@ -17,7 +27,10 @@ navigation = st.navigation(
             st.Page(render_vegetation_page, title="Vegetation", url_path="vegetation"),
         ],
         "Land Use Classification": [
-            st.Page(render_land_use_page, title="Land Use Examples", url_path="land-use-examples"),
+            st.Page(render_land_use_tiles_page, title="Land Use Examples", url_path="land-use-examples"),
+        ],
+        "Water Quality": [
+            st.Page(render_water_quality_page, title="Water Quality", url_path="water-quality"),
         ],
     },
     position="sidebar",
