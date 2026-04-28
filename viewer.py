@@ -430,8 +430,10 @@ def load_water_quality_statistics() -> dict[str, dict[str, float | str]]:
 
 
 @st.cache_data(show_spinner=False)
-def load_water_quality_example(index_key: str):
+def load_water_quality_example(index_key: str, tile_index: int):
     if index_key not in WATER_QUALITY_SPECS:
+        return None
+    if tile_index < 0 or tile_index > 7:
         return None
 
     tiles_dir = WATER_QUALITY_DIR / "tiles"
@@ -439,18 +441,17 @@ def load_water_quality_example(index_key: str):
     if stats is None:
         return None
 
-    base_tiles = []
-    heatmap_tiles = []
-    for idx in range(1, 9):
-        base_path = tiles_dir / f"water_original_tile_{idx}.png"
-        heatmap_path = tiles_dir / f"water_{index_key}_tile_{idx}.png"
-        if not base_path.exists() or not heatmap_path.exists():
-            return None
-        with Image.open(base_path) as base_img:
-            base_tiles.append(base_img.convert("RGB"))
-        with Image.open(heatmap_path) as heatmap_img:
-            heatmap_tiles.append(heatmap_img.convert("RGB"))
-    return base_tiles, heatmap_tiles, stats
+    idx = tile_index + 1
+    base_path = tiles_dir / f"water_original_tile_{idx}.png"
+    heatmap_path = tiles_dir / f"water_{index_key}_tile_{idx}.png"
+    if not base_path.exists() or not heatmap_path.exists():
+        return None
+
+    with Image.open(base_path) as base_img:
+        base_img = base_img.convert("RGB")
+    with Image.open(heatmap_path) as heatmap_img:
+        heatmap_img = heatmap_img.convert("RGB")
+    return base_img, heatmap_img, stats
 
 
 def heatmap_bar_html(stats: dict[str, float | str], accent_label: str) -> str:
@@ -871,15 +872,13 @@ def render_water_quality_page(mask_opacity: float = OVERLAY_ALPHA):
     spec = WATER_QUALITY_SPECS[selected]
 
     with st.spinner(f"Loading {spec['title']}..."):
-        loaded = load_water_quality_example(selected)
+        loaded = load_water_quality_example(selected, tile_index)
 
     if loaded is None:
         st.error("Missing water quality files. Expected the original TCI image, three heatmaps, and the statistics text file.")
         st.stop()
 
-    base_tiles, heatmap_tiles, stats = loaded
-    base_img = base_tiles[tile_index]
-    heatmap_img = heatmap_tiles[tile_index]
+    base_img, heatmap_img, stats = loaded
 
     st.subheader(f"{spec['title']} - example {tile_index + 1}")
     components.html(
