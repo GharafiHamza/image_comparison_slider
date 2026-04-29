@@ -14,6 +14,30 @@ VEGETATION_DIR = DATA_DIR / "Vegetation"
 WATER_QUALITY_DIR = DATA_DIR / "water quality"
 OVERLAY_ALPHA = 0.65
 
+WATER_QUALITY_COLOR_STOPS = {
+    "chl": (
+        (4, 20, 12),
+        (15, 79, 38),
+        (36, 149, 67),
+        (112, 200, 111),
+        (229, 245, 224),
+    ),
+    "tss": (
+        (31, 17, 10),
+        (92, 52, 27),
+        (153, 91, 44),
+        (220, 157, 76),
+        (251, 233, 182),
+    ),
+    "cdom": (
+        (7, 15, 47),
+        (22, 67, 137),
+        (34, 123, 199),
+        (55, 191, 204),
+        (227, 250, 248),
+    ),
+}
+
 SLIDER_CSS = """
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { background: transparent; overflow: hidden; }
@@ -110,6 +134,30 @@ def split_into_tiles(img: Image.Image, rows: int = 2, cols: int = 2) -> list[Ima
             right = img.width if col == cols - 1 else ((col + 1) * img.width) // cols
             tiles.append(img.crop((left, top, right, bottom)))
     return tiles
+
+
+def recolor_with_palette(img: Image.Image, stops: tuple[tuple[int, int, int], ...]) -> Image.Image:
+    gray = np.array(img.convert("L"), dtype=np.uint8)
+    anchor_positions = np.linspace(0, 255, num=len(stops))
+    gray_values = np.arange(256)
+    lut = np.zeros((256, 3), dtype=np.uint8)
+    colors = np.array(stops, dtype=np.float32)
+    for channel in range(3):
+        lut[:, channel] = np.interp(gray_values, anchor_positions, colors[:, channel]).astype(np.uint8)
+    colored = lut[gray]
+    return Image.fromarray(colored, "RGB")
+
+
+def palette_to_css_gradient(stops: tuple[tuple[int, int, int], ...]) -> str:
+    if len(stops) == 1:
+        r, g, b = stops[0]
+        return f"linear-gradient(90deg, rgb({r}, {g}, {b}) 0%, rgb({r}, {g}, {b}) 100%)"
+    pieces = []
+    last = len(stops) - 1
+    for idx, (r, g, b) in enumerate(stops):
+        pct = round(idx * 100 / last)
+        pieces.append(f"rgb({r}, {g}, {b}) {pct}%")
+    return "linear-gradient(90deg, " + ", ".join(pieces) + ")"
 
 
 def fit_to_box(img: Image.Image, max_width: int, max_height: int) -> Image.Image:
@@ -383,18 +431,21 @@ WATER_QUALITY_SPECS = {
         "title": "Chlorophyll-a",
         "path": "MDN_chl_heatmap_jet.png",
         "unit": "mg/m3",
+        "color_stops": WATER_QUALITY_COLOR_STOPS["chl"],
     },
     "tss": {
         "label": "TSS",
         "title": "Total Suspended Solids",
         "path": "MDN_tss_heatmap_jet.png",
         "unit": "g/m3",
+        "color_stops": WATER_QUALITY_COLOR_STOPS["tss"],
     },
     "cdom": {
         "label": "CDOM",
         "title": "Colored Dissolved Organic Matter",
         "path": "MDN_cdom_heatmap_jet.png",
         "unit": "m-1",
+        "color_stops": WATER_QUALITY_COLOR_STOPS["cdom"],
     },
 }
 
@@ -451,7 +502,8 @@ def load_water_quality_example(index_key: str, tile_index: int):
         base_img = base_img.convert("RGB")
     with Image.open(heatmap_path) as heatmap_img:
         heatmap_img = heatmap_img.convert("RGB")
-    return base_img, heatmap_img, stats
+    heatmap_img = recolor_with_palette(heatmap_img, WATER_QUALITY_SPECS[index_key]["color_stops"])
+    return base_img, heatmap_img, stats, palette_to_css_gradient(WATER_QUALITY_SPECS[index_key]["color_stops"])
 
 
 def heatmap_bar_html(stats: dict[str, float | str], accent_label: str) -> str:
@@ -560,6 +612,7 @@ def water_quality_section_html(
     stats: dict[str, float | str],
     title: str,
     mask_opacity: float,
+    bar_gradient: str,
 ) -> str:
     min_v = float(stats["min"])
     max_v = float(stats["max"])
@@ -594,9 +647,7 @@ body {{ margin: 0; background: transparent; font-family: sans-serif; }}
 .sub {{ font-size: 13px; opacity: 0.82; }}
 .wq-bar {{
   position: relative; height: 34px; border-radius: 999px; overflow: hidden;
-  background: linear-gradient(90deg,
-    #0b1d51 0%, #123a8a 12%, #1d73c9 28%, #29b6f6 45%, #6fe7d1 58%,
-    #c8f27d 70%, #ffe45c 82%, #ff9e43 92%, #e53935 100%);
+  background: {bar_gradient};
   border: 1px solid rgba(255,255,255,0.28);
   box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
 }}
@@ -878,7 +929,7 @@ def render_water_quality_page(mask_opacity: float = OVERLAY_ALPHA):
         st.error("Missing water quality files. Expected the original TCI image, three heatmaps, and the statistics text file.")
         st.stop()
 
-    base_img, heatmap_img, stats = loaded
+    base_img, heatmap_img, stats, bar_gradient = loaded
 
     st.subheader(f"{spec['title']} - example {tile_index + 1}")
     components.html(
@@ -888,6 +939,7 @@ def render_water_quality_page(mask_opacity: float = OVERLAY_ALPHA):
             stats,
             spec["title"],
             mask_opacity=mask_opacity,
+            bar_gradient=bar_gradient,
         ),
         height=1240,
         scrolling=False,
