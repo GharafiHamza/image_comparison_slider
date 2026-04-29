@@ -280,7 +280,8 @@ def single_slider_html(
 .legend {{
   position: absolute; left: var(--legend-x, 72%); top: var(--legend-y, 72%);
   transform: translate(-50%, -50%);
-  max-width: 28%; max-height: 42%;
+  width: min(30%, 340px);
+  max-width: none; max-height: none;
   z-index: 15; pointer-events: auto; touch-action: none; cursor: grab;
 }}
 .legend img {{
@@ -305,6 +306,16 @@ def single_slider_html(
   let legendDragging = false;
   let legendPos = {{ x: 72, y: 72 }};
   function apply() {{
+    if (legendBox) {{
+      const cw = comp.clientWidth || 1;
+      const ch = comp.clientHeight || 1;
+      const bw = legendBox.offsetWidth || 1;
+      const bh = legendBox.offsetHeight || 1;
+      const halfW = (bw / cw) * 50;
+      const halfH = (bh / ch) * 50;
+      legendPos.x = Math.max(halfW, Math.min(100 - halfW, legendPos.x));
+      legendPos.y = Math.max(halfH, Math.min(100 - halfH, legendPos.y));
+    }}
     comp.style.setProperty('--p1', p1 + '%');
     h1.style.left = p1 + '%';
     comp.style.setProperty('--legend-x', legendPos.x + '%');
