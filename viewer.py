@@ -227,43 +227,67 @@ def single_slider_html(
     mask_opacity: float = OVERLAY_ALPHA,
     legend_scale: float = 0.6,
     legend_resize_scale: float = 1.0,
+    legend_draggable: bool = False,
 ) -> str:
+    legend_block = ""
     if legend_img is not None:
-        img_base = add_legend_overlay(
-            img_base,
-            legend_img,
-            max_width_ratio=legend_scale,
-            max_height_ratio=min(0.9, legend_scale + 0.12),
-            legend_resize_scale=legend_resize_scale,
-        )
-        img_overlay = apply_opacity(img_overlay, mask_opacity)
-        img_overlay = add_legend_overlay(
-            img_overlay,
-            legend_img,
-            max_width_ratio=legend_scale,
-            max_height_ratio=min(0.9, legend_scale + 0.12),
-            legend_resize_scale=legend_resize_scale,
-        )
+        if legend_draggable:
+            img_overlay = apply_opacity(img_overlay, mask_opacity)
+            legend = legend_img.convert("RGB")
+            if legend_resize_scale != 1.0:
+                legend = legend.resize(
+                    (
+                        max(1, int(legend.width * legend_resize_scale)),
+                        max(1, int(legend.height * legend_resize_scale)),
+                    ),
+                    Image.LANCZOS,
+                )
+            legend = fit_to_box(
+                legend,
+                max_width=max(280, int(img_base.width * legend_scale)),
+                max_height=max(220, int(img_base.height * min(0.56, legend_scale + 0.04))),
+            )
+            legend_b64 = to_b64(legend.convert("RGB"), format="PNG")
+            legend_block = f"""
+  <div class="legend" id="legend-box">
+    <img src="data:image/png;base64,{legend_b64}">
+  </div>"""
+        else:
+            img_base = add_legend_overlay(
+                img_base,
+                legend_img,
+                max_width_ratio=legend_scale,
+                max_height_ratio=min(0.9, legend_scale + 0.12),
+                legend_resize_scale=legend_resize_scale,
+            )
+            img_overlay = apply_opacity(img_overlay, mask_opacity)
+            img_overlay = add_legend_overlay(
+                img_overlay,
+                legend_img,
+                max_width_ratio=legend_scale,
+                max_height_ratio=min(0.9, legend_scale + 0.12),
+                legend_resize_scale=legend_resize_scale,
+            )
     else:
         img_overlay = apply_opacity(img_overlay, mask_opacity)
     b0 = to_b64(img_base, format="JPEG")
     b1 = to_b64(img_overlay, format="PNG")
-    legend_block = ""
     return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>
 {SLIDER_CSS}
 #ov1 {{ clip-path: inset(0 calc(100% - var(--p1)) 0 0); }}
 #lbl-l {{ left: 12px; }}
 #lbl-r {{ right: 12px; }}
 .legend {{
-  position: absolute; right: 12px; bottom: 48px;
+  position: absolute; left: var(--legend-x, 72%); top: var(--legend-y, 72%);
+  transform: translate(-50%, -50%);
   max-width: 28%; max-height: 42%;
-  z-index: 15; pointer-events: none;
+  z-index: 15; pointer-events: auto; touch-action: none; cursor: grab;
 }}
 .legend img {{
   display: block; width: 100%; height: auto;
 }}
 </style></head><body>
-<div id="comp" style="--p1:50%; --mask-opacity:{mask_opacity}">
+<div id="comp" style="--p1:50%; --mask-opacity:{mask_opacity}; --legend-x:72%; --legend-y:72%;">
   <img id="base-img" src="data:image/jpeg;base64,{b0}">
   <div class="ov" id="ov1"><img src="data:image/png;base64,{b1}"></div>
   <div class="handle" id="h1" style="left:50%">
@@ -276,23 +300,46 @@ def single_slider_html(
 (function() {{
   const comp = document.getElementById('comp');
   const h1 = document.getElementById('h1');
+  const legendBox = document.getElementById('legend-box');
   let p1 = 50, dragging = false;
+  let legendDragging = false;
+  let legendPos = {{ x: 72, y: 72 }};
   function apply() {{
     comp.style.setProperty('--p1', p1 + '%');
     h1.style.left = p1 + '%';
+    comp.style.setProperty('--legend-x', legendPos.x + '%');
+    comp.style.setProperty('--legend-y', legendPos.y + '%');
   }}
   function pct(e) {{
     const r = comp.getBoundingClientRect();
     const x = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
     return Math.max(0, Math.min(100, x / r.width * 100));
   }}
-  function onMove(e) {{ if (!dragging) return; p1 = pct(e); apply(); }}
+  function onMove(e) {{
+    if (legendDragging) {{
+      const r = comp.getBoundingClientRect();
+      const point = e.touches ? e.touches[0] : e;
+      legendPos.x = Math.max(0, Math.min(100, ((point.clientX - r.left) / r.width) * 100));
+      legendPos.y = Math.max(0, Math.min(100, ((point.clientY - r.top) / r.height) * 100));
+      apply();
+      return;
+    }}
+    if (!dragging) return;
+    p1 = pct(e);
+    apply();
+  }}
   h1.addEventListener('mousedown', e => {{ dragging = true; e.preventDefault(); }});
   document.addEventListener('mousemove', onMove);
   document.addEventListener('mouseup', () => dragging = false);
   h1.addEventListener('touchstart', e => {{ dragging = true; e.preventDefault(); }}, {{passive:false}});
   document.addEventListener('touchmove', onMove, {{passive:false}});
   document.addEventListener('touchend', () => dragging = false);
+  if (legendBox) {{
+    legendBox.addEventListener('mousedown', e => {{ legendDragging = true; e.preventDefault(); }});
+    legendBox.addEventListener('touchstart', e => {{ legendDragging = true; e.preventDefault(); }}, {{passive:false}});
+    document.addEventListener('mouseup', () => legendDragging = false);
+    document.addEventListener('touchend', () => legendDragging = false);
+  }}
   {RESIZE_JS}
   apply();
 }})();
@@ -1005,6 +1052,7 @@ def render_land_use_tiles_page(mask_opacity: float = OVERLAY_ALPHA):
             mask_opacity=mask_opacity,
             legend_scale=0.88,
             legend_resize_scale=2.8,
+            legend_draggable=True,
         ),
         height=height,
         scrolling=False,
