@@ -278,7 +278,7 @@ def single_slider_html(
 #lbl-l {{ left: 12px; }}
 #lbl-r {{ right: 12px; }}
 .legend {{
-  position: absolute; left: var(--legend-x, 72%); top: var(--legend-y, 72%);
+  position: absolute; left: var(--legend-x, 88%); top: var(--legend-y, 88%);
   transform: translate(-50%, -50%);
   width: min(30%, 340px);
   max-width: none; max-height: none;
@@ -288,7 +288,7 @@ def single_slider_html(
   display: block; width: 100%; height: auto;
 }}
 </style></head><body>
-<div id="comp" style="--p1:50%; --mask-opacity:{mask_opacity}; --legend-x:72%; --legend-y:72%;">
+<div id="comp" style="--p1:50%; --mask-opacity:{mask_opacity}; --legend-x:88%; --legend-y:88%;">
   <img id="base-img" src="data:image/jpeg;base64,{b0}">
   <div class="ov" id="ov1"><img src="data:image/png;base64,{b1}"></div>
   <div class="handle" id="h1" style="left:50%">
@@ -304,7 +304,7 @@ def single_slider_html(
   const legendBox = document.getElementById('legend-box');
   let p1 = 50, dragging = false;
   let legendDragging = false;
-  let legendPos = {{ x: 72, y: 72 }};
+  let legendPos = {{ x: 88, y: 88 }};
   function apply() {{
     if (legendBox) {{
       const cw = comp.clientWidth || 1;
